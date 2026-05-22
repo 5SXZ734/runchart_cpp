@@ -8,19 +8,29 @@
 #define timegm _mkgmtime
 #endif
 
+// Helper function to parse ISO 8601 timestamp string: "2024-04-08T12:00:00.000Z"
 static std::chrono::system_clock::time_point parseIsoTimestamp(const std::string& iso) {
+    // Extract just the datetime part (first 19 characters): "2024-04-08T12:00:00"
+    if (iso.length() < 19) {
+        throw std::runtime_error("Invalid timestamp format (too short): " + iso);
+    }
+
     std::tm tm{};
     std::istringstream ss(iso.substr(0, 19));
     ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
 
     if (ss.fail()) {
-        throw std::runtime_error("Invalid timestamp: " + iso);
+        throw std::runtime_error("Invalid timestamp format: " + iso);
     }
 
-    std::time_t time = _mkgmtime(&tm);
+    // Convert to time_t using GMT/UTC
+    std::time_t time = timegm(&tm);
+    if (time == -1) {
+        throw std::runtime_error("Invalid timestamp value: " + iso);
+    }
+
     return std::chrono::system_clock::from_time_t(time);
 }
-
 
 Measurement::Measurement(const runchart::DataPoint& point) {
     timestamp = std::chrono::system_clock::time_point{std::chrono::seconds(point.timestamp().seconds())};
@@ -31,17 +41,17 @@ Measurement::Measurement(const runchart::DataPoint& point) {
 }
 
 Measurement::Measurement(
-	const std::string& _timestampIso,
-	const std::string& _partNumber,
-	double _nominal,
-	double _tolerance,
-	double _measurement
+    const std::string& _timestampIso,
+    const std::string& _partNumber,
+    double _nominal,
+    double _tolerance,
+    double _measurement
 )
-	: timestamp(parseIsoTimestamp(_timestampIso)),
-	partNumber(_partNumber),
-	nominal(_nominal),
-	tolerance(_tolerance),
-	measurement(_measurement)
+    : timestamp(parseIsoTimestamp(_timestampIso)),
+      partNumber(_partNumber),
+      nominal(_nominal),
+      tolerance(_tolerance),
+      measurement(_measurement)
 {
 }
 
@@ -83,11 +93,5 @@ Measurement Measurement::defaultMeasurement() {
 }
 
 std::chrono::system_clock::time_point Measurement::parseIsoUtc(const std::string& value) {
-    std::tm tm{};
-    std::istringstream in(value.substr(0, 19));
-    in >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
-    if (in.fail()) {
-        throw std::runtime_error("Invalid timestamp: " + value);
-    }
-    return std::chrono::system_clock::from_time_t(timegm(&tm));
+    return parseIsoTimestamp(value);
 }
