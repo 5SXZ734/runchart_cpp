@@ -1,7 +1,6 @@
 #include "run_chart_client.h"
 #include <fstream>
 #include <iostream>
-#include <regex>
 #include <sstream>
 #include <nlohmann/json.hpp>
 
