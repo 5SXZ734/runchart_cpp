@@ -1,0 +1,32 @@
+syntax="proto3";
+
+package runchart;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.demo.runchart";
+
+message DataPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  string part_number = 2;
+  double spec_nominal = 3;
+  double spec_tolerance = 4;
+  double measurement = 5;
+}
+
+message Warning {
+  google.protobuf.Timestamp timestamp = 1;
+  string part_number = 2;
+  double spec_nominal = 3;
+  double spec_tolerance = 4;
+  string warning = 5;
+}
+
+message Empty {}
+
+service RunChartService {
+  rpc SnapShot(Empty) returns (DataPoint){}
+  rpc SendMeasurements(stream DataPoint) returns (Empty) {}
+  rpc Monitor(Empty) returns (stream DataPoint) {}
+  rpc SendAndCheck(stream DataPoint) returns (stream Warning) {}
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "timestamp": "2024-04-08T12:00:00.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 10.0
+  },
+  {
+    "timestamp": "2024-04-08T12:00:01.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.9
+  },
+  {
+    "timestamp": "2024-04-08T12:00:02.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 10.1
+  },
+  {
+    "timestamp": "2024-04-08T12:00:03.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 10.3
+  },
+  {
+    "timestamp": "2024-04-08T12:00:04.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.9
+  },
+  {
+    "timestamp": "2024-04-08T12:00:05.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.8
+  },
+  {
+    "timestamp": "2024-04-08T12:00:06.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.6
+  },
+  {
+    "timestamp": "2024-04-08T12:00:07.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.5
+  },
+  {
+    "timestamp": "2024-04-08T12:00:08.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 9.2
+  },
+  {
+    "timestamp": "2024-04-08T12:00:00.000Z",
+    "part_number": "111-22-3344",
+    "nominal": 10.0,
+    "tolerance": 1.0,
+    "measurement": 8.8
+  }
+]
