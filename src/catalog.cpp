@@ -40,9 +40,15 @@ struct ParsedMetadata {
     int trackNumber = 0;
 };
 
-ParsedMetadata readMetadataFromFile(const std::string& pathUtf8) {
+ParsedMetadata readMetadataFromFile(const std::filesystem::path& path) {
     ParsedMetadata metadata;
-    TagLib::FileRef file(pathUtf8.c_str());
+    std::string pathNative;
+    try {
+        pathNative = path.string();
+    } catch (...) {
+        return metadata;
+    }
+    TagLib::FileRef file(pathNative.c_str());
     if (file.isNull() || file.tag() == nullptr) {
         return metadata;
     }
@@ -109,7 +115,7 @@ std::size_t Catalog::scanFromNasPath(const std::string& nasPath) {
 			continue;
 		}
 
-        ParsedMetadata metadata = readMetadataFromFile(pathUtf8);
+        ParsedMetadata metadata = readMetadataFromFile(entry.path());
         std::string artist = metadata.artist.empty() ? "Unknown Artist" : metadata.artist;
         std::string album = metadata.album.empty() ? "Unknown Album" : metadata.album;
         int trackNo = metadata.trackNumber;
