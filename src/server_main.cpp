@@ -5,10 +5,12 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <cstdlib>
 
 #include <grpcpp/grpcpp.h>
 
 #include "run_chart_service.h"
+#include "structured_logger.h"
 
 namespace {
 
@@ -27,6 +29,11 @@ int main(int argc, char** argv) {
     (void)argv;
 
     const std::string address = "0.0.0.0:3030";
+
+    const char* loggingEnv = std::getenv("RUNCHART_ENABLE_STRUCTURED_LOGGING");
+    const bool loggingEnabled = loggingEnv != nullptr && std::string(loggingEnv) == "1";
+    StructuredLogger::instance().setEnabled(loggingEnabled);
+    StructuredLogger::instance().setLogPath("runchart_server.log");
 
 #if defined(_WIN32)
     // Portable fallback for non-POSIX toolchains.
@@ -74,6 +81,7 @@ int main(int argc, char** argv) {
     });
 #endif
 
+    StructuredLogger::instance().log("INFO", "server_start", "", "", {{"address", address}});
     std::cout << "Server listening on " << address << std::endl;
     std::cout << "Press Ctrl+C to stop.\n" << std::endl;
 
@@ -83,6 +91,7 @@ int main(int argc, char** argv) {
         signal_thread.join();
     }
 
+    StructuredLogger::instance().log("INFO", "server_shutdown", "", "");
     std::cout << "Server shutdown complete.\n";
     return 0;
 }
