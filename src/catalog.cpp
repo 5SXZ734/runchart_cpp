@@ -4,6 +4,8 @@
 #include <cctype>
 #include <filesystem>
 #include <sqlite3.h>
+#include <taglib/fileref.h>
+#include <taglib/tag.h>
 
 namespace {
 
@@ -23,6 +25,35 @@ namespace {
 	std::string utf8PathString(const std::filesystem::path& path) {
 		return path.u8string();
 	}
+
+std::string fromTagLibString(const TagLib::String& value) {
+    if (value.isEmpty()) {
+        return {};
+    }
+    return value.to8Bit(true);
+}
+
+struct ParsedMetadata {
+    std::string title;
+    std::string artist;
+    std::string album;
+    int trackNumber = 0;
+};
+
+ParsedMetadata readMetadataFromFile(const std::string& pathUtf8) {
+    ParsedMetadata metadata;
+    TagLib::FileRef file(pathUtf8.c_str());
+    if (file.isNull() || file.tag() == nullptr) {
+        return metadata;
+    }
+
+    TagLib::Tag* tag = file.tag();
+    metadata.title = fromTagLibString(tag->title());
+    metadata.artist = fromTagLibString(tag->artist());
+    metadata.album = fromTagLibString(tag->album());
+    metadata.trackNumber = static_cast<int>(tag->track());
+    return metadata;
+}
 
 }  // namespace
 
@@ -78,9 +109,13 @@ std::size_t Catalog::scanFromNasPath(const std::string& nasPath) {
 			continue;
 		}
 
-		std::string artist = "Unknown Artist";
-		std::string album = "Unknown Album";
-		int trackNo = 0;
+        ParsedMetadata metadata = readMetadataFromFile(pathUtf8);
+        std::string artist = metadata.artist.empty() ? "Unknown Artist" : metadata.artist;
+        std::string album = metadata.album.empty() ? "Unknown Album" : metadata.album;
+        int trackNo = metadata.trackNumber;
+        if (!metadata.title.empty()) {
+            title = metadata.title;
+        }
 
 		sqlite3_stmt* stmt = nullptr;
 		sqlite3_prepare_v2(db, "INSERT OR IGNORE INTO artists(name) VALUES(?)", -1, &stmt, nullptr);
