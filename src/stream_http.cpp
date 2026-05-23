@@ -122,7 +122,7 @@ void HttpStreamServer::run() {
         std::string status = "200 OK";
 
         if (req.find("GET /health") != std::string::npos) {
-            body = "ok\n";
+            body = "ok";
         } else if (req.find("GET /metrics") != std::string::npos) {
             body = metricsFn_ ? metricsFn_() : "";
         } else {
