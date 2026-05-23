@@ -3,6 +3,9 @@
 #include <string>
 #include <grpcpp/grpcpp.h>
 #include "run_chart_client.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 void printUsage(const char* p) {
     std::cerr << "Usage:\n";
@@ -15,6 +18,10 @@ void printUsage(const char* p) {
 }
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
     if (argc < 3) { printUsage(argv[0]); return 1; }
     const std::string serverAddress = argv[1];
     const std::string cmd = argv[2];
