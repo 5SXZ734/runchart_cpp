@@ -28,6 +28,22 @@ public:
     grpc::Status SendAndCheck(grpc::ServerContext* context,
                               grpc::ServerReaderWriter<runchart::Warning, runchart::DataPoint>* stream) override;
 
+    grpc::Status ScanLibrary(grpc::ServerContext* context,
+                             const runchart::ScanRequest* request,
+                             runchart::ScanResponse* response) override;
+    grpc::Status ListArtists(grpc::ServerContext* context,
+                             const runchart::ListArtistsRequest* request,
+                             runchart::ListArtistsResponse* response) override;
+    grpc::Status ListAlbums(grpc::ServerContext* context,
+                            const runchart::ListAlbumsRequest* request,
+                            runchart::ListAlbumsResponse* response) override;
+    grpc::Status ListTracks(grpc::ServerContext* context,
+                            const runchart::ListTracksRequest* request,
+                            runchart::ListTracksResponse* response) override;
+    grpc::Status Search(grpc::ServerContext* context,
+                        const runchart::SearchRequest* request,
+                        runchart::SearchResponse* response) override;
+
     void stop();
 
 private:

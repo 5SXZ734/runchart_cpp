@@ -24,9 +24,57 @@ message Warning {
 
 message Empty {}
 
+message ScanRequest {
+  string root_path = 1;
+}
+
+message ScanResponse {
+  uint32 tracks_scanned = 1;
+}
+
+message Artist {
+  int64 id = 1;
+  string name = 2;
+}
+
+message Album {
+  int64 id = 1;
+  string title = 2;
+  string artist_name = 3;
+}
+
+message Track {
+  int64 id = 1;
+  string title = 2;
+  string artist_name = 3;
+  string album_title = 4;
+  int32 track_number = 5;
+  string file_path = 6;
+}
+
+message ListArtistsRequest {}
+message ListArtistsResponse { repeated Artist artists = 1; }
+message ListAlbumsRequest {}
+message ListAlbumsResponse { repeated Album albums = 1; }
+message ListTracksRequest {}
+message ListTracksResponse { repeated Track tracks = 1; }
+
+message SearchRequest { string query = 1; }
+message SearchResponse {
+  repeated Artist artists = 1;
+  repeated Album albums = 2;
+  repeated Track tracks = 3;
+}
+
 service RunChartService {
   rpc SnapShot(Empty) returns (DataPoint){}
   rpc SendMeasurements(stream DataPoint) returns (Empty) {}
   rpc Monitor(Empty) returns (stream DataPoint) {}
   rpc SendAndCheck(stream DataPoint) returns (stream Warning) {}
+
+  rpc ScanLibrary(ScanRequest) returns (ScanResponse) {}
+  rpc ListArtists(ListArtistsRequest) returns (ListArtistsResponse) {}
+  rpc ListAlbums(ListAlbumsRequest) returns (ListAlbumsResponse) {}
+  rpc ListTracks(ListTracksRequest) returns (ListTracksResponse) {}
+  rpc Search(SearchRequest) returns (SearchResponse) {}
 }

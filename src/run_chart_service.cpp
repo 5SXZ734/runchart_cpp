@@ -122,3 +122,38 @@ bool RunChartService::buildWarning(const Measurement& m, runchart::Warning* warn
 }
 
 void RunChartService::stop() { stopping_.store(true); }
+
+
+Status RunChartService::ScanLibrary(ServerContext* context, const runchart::ScanRequest* request, runchart::ScanResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    const std::size_t scanned = catalog_->scanFromNasPath(request->root_path().empty() ? "./" : request->root_path());
+    response->set_tracks_scanned(static_cast<std::uint32_t>(scanned));
+    return Status::OK;
+}
+
+Status RunChartService::ListArtists(ServerContext* context, const runchart::ListArtistsRequest*, runchart::ListArtistsResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    for (const auto& a : catalog_->listArtists()) { auto* out = response->add_artists(); out->set_id(a.id); out->set_name(a.name);}
+    return Status::OK;
+}
+
+Status RunChartService::ListAlbums(ServerContext* context, const runchart::ListAlbumsRequest*, runchart::ListAlbumsResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    for (const auto& a : catalog_->listAlbums()) { auto* out = response->add_albums(); out->set_id(a.id); out->set_title(a.title); out->set_artist_name(a.artistName);}
+    return Status::OK;
+}
+
+Status RunChartService::ListTracks(ServerContext* context, const runchart::ListTracksRequest*, runchart::ListTracksResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    for (const auto& t : catalog_->listTracks()) { auto* out = response->add_tracks(); out->set_id(t.id); out->set_title(t.title); out->set_artist_name(t.artistName); out->set_album_title(t.albumTitle); out->set_track_number(t.trackNumber); out->set_file_path(t.filePath);}
+    return Status::OK;
+}
+
+Status RunChartService::Search(ServerContext* context, const runchart::SearchRequest* request, runchart::SearchResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    const std::string q = request->query();
+    for (const auto& a : catalog_->searchArtists(q)) { auto* out = response->add_artists(); out->set_id(a.id); out->set_name(a.name);}
+    for (const auto& a : catalog_->searchAlbums(q)) { auto* out = response->add_albums(); out->set_id(a.id); out->set_title(a.title); out->set_artist_name(a.artistName);}
+    for (const auto& t : catalog_->searchTracks(q)) { auto* out = response->add_tracks(); out->set_id(t.id); out->set_title(t.title); out->set_artist_name(t.artistName); out->set_album_title(t.albumTitle); out->set_track_number(t.trackNumber); out->set_file_path(t.filePath);}
+    return Status::OK;
+}

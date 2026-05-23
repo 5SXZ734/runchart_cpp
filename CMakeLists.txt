@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(gRPC CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 # vcpkg provides Protobuf CONFIG mode.
 # Ubuntu apt often provides only CMake module mode.
@@ -107,6 +108,7 @@ target_link_libraries(runchart_lib PUBLIC
     gRPC::grpc++
     ${RUNCHART_PROTOBUF_LIB}
     nlohmann_json::nlohmann_json
+    SQLite::SQLite3
 )
 
 if(WIN32)
