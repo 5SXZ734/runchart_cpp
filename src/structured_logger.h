@@ -8,6 +8,7 @@ class StructuredLogger {
 public:
     static StructuredLogger& instance();
 
+    void setEnabled(bool enabled);
     void setLogPath(const std::string& path);
     void log(const std::string& level,
              const std::string& event,
@@ -22,5 +23,6 @@ private:
     static std::string escapeJson(const std::string& value);
 
     std::mutex mutex_;
+    bool enabled_ = false;
     std::string logPath_ = "runchart_server.log";
 };

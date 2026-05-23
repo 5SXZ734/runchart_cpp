@@ -15,11 +15,31 @@ namespace {
 
 std::string extractClientIp(const grpc::ServerContext* context) {
     const std::string peer = context ? context->peer() : "";
-    const auto colon = peer.rfind(':');
-    if (colon == std::string::npos) {
+    const auto schemeSep = peer.find(':');
+    if (schemeSep == std::string::npos) {
         return peer;
     }
-    return peer.substr(colon + 1);
+
+    const std::string addressPort = peer.substr(schemeSep + 1);
+
+    if (addressPort.empty()) {
+        return "";
+    }
+
+    if (addressPort.front() == '[') {
+        const auto bracketEnd = addressPort.find(']');
+        if (bracketEnd != std::string::npos) {
+            return addressPort.substr(1, bracketEnd - 1);
+        }
+        return addressPort;
+    }
+
+    const auto lastColon = addressPort.rfind(':');
+    if (lastColon == std::string::npos) {
+        return addressPort;
+    }
+
+    return addressPort.substr(0, lastColon);
 }
 
 std::string buildRequestId(const grpc::ServerContext* context) {
@@ -88,7 +108,6 @@ Status RunChartService::SendAndCheck(ServerContext* context, ServerReaderWriter<
     while (stream->Read(&point)) {
         addMeasurement(point, clientIp, requestId);
         Measurement m(point);
-    StructuredLogger::instance().log("INFO", "measurement_received", clientIp, requestId, {{"part_number", m.partNumber}, {"measurement", std::to_string(m.measurement)}});
         runchart::Warning warning;
         if (buildWarning(m, &warning)) {
             StructuredLogger::instance().log("WARNING", "spec_warning", clientIp, requestId, {{"part_number", m.partNumber}, {"warning", warning.warning()}});

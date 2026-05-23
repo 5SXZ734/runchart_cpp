@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <cstdlib>
 
 #include <grpcpp/grpcpp.h>
 
@@ -28,6 +29,10 @@ int main(int argc, char** argv) {
     (void)argv;
 
     const std::string address = "0.0.0.0:3030";
+
+    const char* loggingEnv = std::getenv("RUNCHART_ENABLE_STRUCTURED_LOGGING");
+    const bool loggingEnabled = loggingEnv != nullptr && std::string(loggingEnv) == "1";
+    StructuredLogger::instance().setEnabled(loggingEnabled);
     StructuredLogger::instance().setLogPath("runchart_server.log");
 
 #if defined(_WIN32)

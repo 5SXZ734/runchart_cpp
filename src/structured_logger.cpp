@@ -10,6 +10,11 @@ StructuredLogger& StructuredLogger::instance() {
     return logger;
 }
 
+void StructuredLogger::setEnabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    enabled_ = enabled;
+}
+
 void StructuredLogger::setLogPath(const std::string& path) {
     std::lock_guard<std::mutex> lock(mutex_);
     logPath_ = path;
@@ -21,6 +26,10 @@ void StructuredLogger::log(const std::string& level,
                            const std::string& requestId,
                            std::initializer_list<std::pair<std::string, std::string>> fields) {
     std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!enabled_) {
+        return;
+    }
 
     std::ofstream out(logPath_, std::ios::app);
     if (!out.is_open()) {
