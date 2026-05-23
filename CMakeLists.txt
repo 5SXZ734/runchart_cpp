@@ -85,6 +85,11 @@ add_library(runchart_lib
     src/run_chart_service.cpp
     src/run_chart_client.cpp
     src/structured_logger.cpp
+    src/config.cpp
+    src/catalog.cpp
+    src/session_auth.cpp
+    src/metrics.cpp
+    src/stream_http.cpp
     "${PROTO_SRC}"
     "${GRPC_SRC}"
 )
@@ -103,6 +108,10 @@ target_link_libraries(runchart_lib PUBLIC
     ${RUNCHART_PROTOBUF_LIB}
     nlohmann_json::nlohmann_json
 )
+
+if(WIN32)
+    target_link_libraries(runchart_lib PUBLIC ws2_32)
+endif()
 
 # -------------------- Server executable --------------------
 

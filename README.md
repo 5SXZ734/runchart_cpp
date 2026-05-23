@@ -208,3 +208,11 @@ grpc::InsecureChannelCredentials()
 - JSON loading uses `nlohmann::json` library
 - Project uses C++17 with no external dependencies except gRPC, protobuf, and nlohmann-json
 - Insecure gRPC credentials are suitable only for LAN demos; use proper TLS/SSL for production
+
+## Configuration
+
+Copy `.env.example` to `.env` (or set `RUNCHART_CONFIG_FILE`) and provide gRPC address, HTTP bind/port, NAS path, and auth secret.
+
+The service exposes:
+- `GET /health` -> `ok`
+- `GET /metrics` -> basic counters in Prometheus text format

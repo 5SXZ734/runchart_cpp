@@ -1,15 +1,18 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
-#include <vector>
+#include <atomic>
 #include <grpcpp/grpcpp.h>
-#include <string>
+
+#include "catalog.h"
 #include "measurement.h"
+#include "metrics.h"
 #include "runchart.grpc.pb.h"
+#include "session_auth.h"
 
 class RunChartService final : public runchart::RunChartService::Service {
 public:
+    RunChartService(Catalog* catalog, SessionAuth* auth, Metrics* metrics);
+
     grpc::Status SnapShot(grpc::ServerContext* context,
                           const runchart::Empty* request,
                           runchart::DataPoint* response) override;
@@ -31,9 +34,8 @@ private:
     void addMeasurement(const runchart::DataPoint& point, const std::string& clientIp, const std::string& requestId);
     static bool buildWarning(const Measurement& m, runchart::Warning* warning);
 
-    std::mutex mutex_;
-    std::condition_variable cv_;
-    std::vector<Measurement> measurements_;
-    std::size_t version_ = 0;
-    bool stopping_ = false;
+    Catalog* catalog_;
+    SessionAuth* auth_;
+    Metrics* metrics_;
+    std::atomic<bool> stopping_{false};
 };
