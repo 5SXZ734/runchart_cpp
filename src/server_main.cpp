@@ -28,6 +28,18 @@ int main(int argc, char** argv) {
 
     const std::string address = "0.0.0.0:3030";
 
+#if defined(_WIN32)
+    // Portable fallback for non-POSIX toolchains.
+    // Register before startup so Ctrl+C during initialization is captured.
+    std::signal(SIGINT, HandleSigInt);
+#else
+    // Block SIGINT before startup to avoid default process termination during initialization.
+    sigset_t signal_set;
+    sigemptyset(&signal_set);
+    sigaddset(&signal_set, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &signal_set, nullptr);
+#endif
+
     RunChartService service;
     grpc::ServerBuilder builder;
     builder.AddListeningPort(address, grpc::InsecureServerCredentials());
@@ -40,9 +52,6 @@ int main(int argc, char** argv) {
     }
 
 #if defined(_WIN32)
-    // Portable fallback for non-POSIX toolchains.
-    std::signal(SIGINT, HandleSigInt);
-
     std::thread signal_thread([&server]() {
         while (!g_shutdown_requested.load(std::memory_order_relaxed)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -55,11 +64,6 @@ int main(int argc, char** argv) {
 #else
     // Handle SIGINT on a dedicated thread using sigwait().
     // This avoids calling non-signal-safe APIs from a signal handler.
-    sigset_t signal_set;
-    sigemptyset(&signal_set);
-    sigaddset(&signal_set, SIGINT);
-    pthread_sigmask(SIG_BLOCK, &signal_set, nullptr);
-
     std::thread signal_thread([&server, signal_set]() mutable {
         int received_signal = 0;
         if (sigwait(&signal_set, &received_signal) == 0 && received_signal == SIGINT) {
