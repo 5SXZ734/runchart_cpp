@@ -109,6 +109,10 @@ target_link_libraries(runchart_lib PUBLIC
     nlohmann_json::nlohmann_json
 )
 
+if(WIN32)
+    target_link_libraries(runchart_lib PUBLIC ws2_32)
+endif()
+
 # -------------------- Server executable --------------------
 
 add_executable(runchart_server
