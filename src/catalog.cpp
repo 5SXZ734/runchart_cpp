@@ -1,7 +1,39 @@
 #include "catalog.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <sqlite3.h>
+
+namespace {
+
+std::string lowerAscii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+bool isSupportedAudioExtension(const std::filesystem::path& path) {
+#if defined(_WIN32)
+    std::wstring extWide = path.extension().wstring();
+    std::string ext(extWide.begin(), extWide.end());
+#else
+    std::string ext = path.extension().string();
+#endif
+    ext = lowerAscii(ext);
+    return ext == ".mp3" || ext == ".flac" || ext == ".m4a";
+}
+
+std::string utf8PathString(const std::filesystem::path& path) {
+#if defined(_WIN32)
+    return path.u8string();
+#else
+    return path.string();
+#endif
+}
+
+}  // namespace
 
 Catalog::Catalog(const std::string& dbPath) : dbPath_(dbPath) { initDb(); }
 
@@ -21,14 +53,39 @@ std::size_t Catalog::scanFromNasPath(const std::string& nasPath) {
     sqlite3* db = nullptr;
     if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) return 0;
     sqlite3_exec(db, "BEGIN", nullptr, nullptr, nullptr);
-    std::size_t count = 0;
-    for (const auto& e : fs::recursive_directory_iterator(nasPath, fs::directory_options::skip_permission_denied)) {
-        if (!e.is_regular_file()) continue;
-        const std::string p = e.path().string();
-        const std::string ext = e.path().extension().string();
-        if (ext != ".mp3" && ext != ".flac" && ext != ".m4a") continue;
 
-        std::string title = e.path().stem().string();
+    std::size_t count = 0;
+    std::error_code ec;
+    fs::recursive_directory_iterator it(fs::path(nasPath), fs::directory_options::skip_permission_denied, ec);
+    fs::recursive_directory_iterator end;
+
+    while (it != end) {
+        if (ec) {
+            it.increment(ec);
+            continue;
+        }
+
+        const fs::directory_entry entry = *it;
+        it.increment(ec);
+
+        std::error_code entryEc;
+        if (!entry.is_regular_file(entryEc) || entryEc) {
+            continue;
+        }
+
+        if (!isSupportedAudioExtension(entry.path())) {
+            continue;
+        }
+
+        std::string pathUtf8;
+        std::string title;
+        try {
+            pathUtf8 = utf8PathString(entry.path());
+            title = utf8PathString(entry.path().stem());
+        } catch (...) {
+            continue;
+        }
+
         std::string artist = "Unknown Artist";
         std::string album = "Unknown Album";
         int trackNo = 0;
@@ -63,11 +120,12 @@ std::size_t Catalog::scanFromNasPath(const std::string& nasPath) {
         sqlite3_bind_int64(stmt, 2, albumId);
         sqlite3_bind_int64(stmt, 3, artistId);
         sqlite3_bind_int(stmt, 4, trackNo);
-        sqlite3_bind_text(stmt, 5, p.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 5, pathUtf8.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
         ++count;
     }
+
     sqlite3_exec(db, "COMMIT", nullptr, nullptr, nullptr);
     sqlite3_close(db);
     return count;
