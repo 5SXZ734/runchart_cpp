@@ -4,6 +4,7 @@
 #include <mutex>
 #include <vector>
 #include <grpcpp/grpcpp.h>
+#include <string>
 #include "measurement.h"
 #include "runchart.grpc.pb.h"
 
@@ -27,7 +28,7 @@ public:
     void stop();
 
 private:
-    void addMeasurement(const runchart::DataPoint& point);
+    void addMeasurement(const runchart::DataPoint& point, const std::string& clientIp, const std::string& requestId);
     static bool buildWarning(const Measurement& m, runchart::Warning* warning);
 
     std::mutex mutex_;

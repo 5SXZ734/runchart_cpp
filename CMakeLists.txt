@@ -84,6 +84,7 @@ add_library(runchart_lib
     src/measurement.cpp
     src/run_chart_service.cpp
     src/run_chart_client.cpp
+    src/structured_logger.cpp
     "${PROTO_SRC}"
     "${GRPC_SRC}"
 )
