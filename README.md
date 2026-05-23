@@ -80,6 +80,21 @@ cmake --build build -j$(nproc)
 # Executables are in: build/
 ```
 
+
+### Build Docker image manually
+
+```bash
+docker build -t runchart-server:latest .
+docker save -o runchart-server-latest.tar runchart-server:latest
+```
+
+Load/run on target host (example):
+
+```bash
+docker load -i runchart-server-latest.tar
+docker run --rm -p 3030:3030 -p 8080:8080 --env-file .env runchart-server:latest
+```
+
 ## Running
 
 ### Start the Server (Windows)
