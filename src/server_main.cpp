@@ -1,4 +1,6 @@
+#include <atomic>
 #include <csignal>
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -8,18 +10,23 @@
 
 #include "run_chart_service.h"
 
+namespace {
+
+std::atomic<bool> g_shutdown_requested{false};
+
+extern "C" void HandleSigInt(int signal) {
+    if (signal == SIGINT) {
+        g_shutdown_requested.store(true, std::memory_order_relaxed);
+    }
+}
+
+}  // namespace
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
     const std::string address = "0.0.0.0:3030";
-
-    // Handle SIGINT on a dedicated thread using sigwait().
-    // This avoids calling non-signal-safe APIs from a signal handler.
-    sigset_t signal_set;
-    sigemptyset(&signal_set);
-    sigaddset(&signal_set, SIGINT);
-    pthread_sigmask(SIG_BLOCK, &signal_set, nullptr);
 
     RunChartService service;
     grpc::ServerBuilder builder;
@@ -32,6 +39,27 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+#if defined(_WIN32)
+    // Portable fallback for non-POSIX toolchains.
+    std::signal(SIGINT, HandleSigInt);
+
+    std::thread signal_thread([&server]() {
+        while (!g_shutdown_requested.load(std::memory_order_relaxed)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        std::cout << "\n\nShutdown requested (Ctrl+C)...\n";
+        std::cout << "Shutting down gRPC server...\n";
+        server->Shutdown();
+    });
+#else
+    // Handle SIGINT on a dedicated thread using sigwait().
+    // This avoids calling non-signal-safe APIs from a signal handler.
+    sigset_t signal_set;
+    sigemptyset(&signal_set);
+    sigaddset(&signal_set, SIGINT);
+    pthread_sigmask(SIG_BLOCK, &signal_set, nullptr);
+
     std::thread signal_thread([&server, signal_set]() mutable {
         int received_signal = 0;
         if (sigwait(&signal_set, &received_signal) == 0 && received_signal == SIGINT) {
@@ -40,6 +68,7 @@ int main(int argc, char** argv) {
             server->Shutdown();
         }
     });
+#endif
 
     std::cout << "Server listening on " << address << std::endl;
     std::cout << "Press Ctrl+C to stop.\n" << std::endl;
