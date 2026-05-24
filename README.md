@@ -80,6 +80,21 @@ cmake --build build -j$(nproc)
 # Executables are in: build/
 ```
 
+
+### Build Docker image manually
+
+```bash
+docker build -t runchart-server:latest .
+docker save -o runchart-server-latest.tar runchart-server:latest
+```
+
+Load/run on target host (example):
+
+```bash
+docker load -i runchart-server-latest.tar
+docker run --rm -p 3030:3030 -p 8080:8080 --env-file .env runchart-server:latest
+```
+
 ## Running
 
 ### Start the Server (Windows)
@@ -195,6 +210,11 @@ grpc::InsecureChannelCredentials()
 - Verify the server is running and listening on the specified port
 - Check firewall rules
 - Ensure the IP address and port are correct
+
+### "Invalid auth token" from client
+- Set `RUNCHART_AUTH_TOKEN` (or `RUNCHART_AUTH_SECRET`) in the client environment to the same value used by the server `RUNCHART_AUTH_SECRET`.
+- Example (Windows cmd): `set RUNCHART_AUTH_TOKEN=your-secret`
+- Example (Linux): `export RUNCHART_AUTH_TOKEN=your-secret`
 
 ### CMake configuration fails on Windows
 - Install Visual Studio build tools

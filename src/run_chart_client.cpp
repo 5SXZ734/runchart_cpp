@@ -7,12 +7,22 @@
 
 using json = nlohmann::json;
 
+namespace {
+void addAuthToken(grpc::ClientContext* context) {
+    if (context == nullptr) return;
+    const char* token = std::getenv("RUNCHART_AUTH_TOKEN");
+    if (token == nullptr || *token == '\0') token = std::getenv("RUNCHART_AUTH_SECRET");
+    if (token != nullptr && *token != '\0') context->AddMetadata("x-auth-token", token);
+}
+}
+
 RunChartClient::RunChartClient(std::shared_ptr<grpc::Channel> channel)
     : stub_(runchart::RunChartService::NewStub(std::move(channel))) {}
 
 Measurement RunChartClient::getSnapShot() {
     grpc::ClientContext context;
     runchart::Empty request;
+    addAuthToken(&context);
     runchart::DataPoint response;
     auto status = stub_->SnapShot(&context, request, &response);
     if (!status.ok()) {
@@ -25,6 +35,7 @@ void RunChartClient::sendMeasurements(const std::string& jsonPath) {
     auto measurements = importMeasurements(jsonPath);
     grpc::ClientContext context;
     runchart::Empty response;
+    addAuthToken(&context);
     auto writer = stub_->SendMeasurements(&context, &response);
 
     for (const auto& m : measurements) {
@@ -40,6 +51,7 @@ void RunChartClient::sendMeasurements(const std::string& jsonPath) {
 void RunChartClient::monitor() {
     grpc::ClientContext context;
     runchart::Empty request;
+    addAuthToken(&context);
     auto reader = stub_->Monitor(&context, request);
 
     runchart::DataPoint point;
@@ -55,6 +67,7 @@ void RunChartClient::monitor() {
 void RunChartClient::sendAndCheck(const std::string& jsonPath) {
     auto measurements = importMeasurements(jsonPath);
     grpc::ClientContext context;
+    addAuthToken(&context);
     auto stream = stub_->SendAndCheck(&context);
 
     std::thread reader([&] {
@@ -104,6 +117,7 @@ std::vector<Measurement> RunChartClient::importMeasurements(const std::string& j
 std::uint32_t RunChartClient::scanLibrary(const std::string& rootPath) {
     grpc::ClientContext context;
     runchart::ScanRequest req;
+    addAuthToken(&context);
     runchart::ScanResponse resp;
     req.set_root_path(rootPath);
     auto status = stub_->ScanLibrary(&context, req, &resp);
@@ -114,6 +128,7 @@ std::uint32_t RunChartClient::scanLibrary(const std::string& rootPath) {
 void RunChartClient::listArtists() {
     grpc::ClientContext context;
     runchart::ListArtistsRequest req;
+    addAuthToken(&context);
     runchart::ListArtistsResponse resp;
     auto status = stub_->ListArtists(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListArtists failed: " + status.error_message());
@@ -122,6 +137,7 @@ void RunChartClient::listArtists() {
 
 void RunChartClient::listAlbums() {
     grpc::ClientContext context; runchart::ListAlbumsRequest req; runchart::ListAlbumsResponse resp;
+    addAuthToken(&context);
     auto status = stub_->ListAlbums(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListAlbums failed: " + status.error_message());
     for (const auto& a : resp.albums()) std::cout << a.id() << " | " << a.artist_name() << " | " << a.title() << "\n";
@@ -129,6 +145,7 @@ void RunChartClient::listAlbums() {
 
 void RunChartClient::listTracks() {
     grpc::ClientContext context; runchart::ListTracksRequest req; runchart::ListTracksResponse resp;
+    addAuthToken(&context);
     auto status = stub_->ListTracks(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListTracks failed: " + status.error_message());
     for (const auto& t : resp.tracks()) std::cout << t.id() << " | " << t.artist_name() << " | " << t.album_title() << " | " << t.track_number() << " | " << t.title() << " | " << t.file_path() << "\n";
@@ -136,6 +153,7 @@ void RunChartClient::listTracks() {
 
 void RunChartClient::search(const std::string& query) {
     grpc::ClientContext context; runchart::SearchRequest req; runchart::SearchResponse resp; req.set_query(query);
+    addAuthToken(&context);
     auto status = stub_->Search(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("Search failed: " + status.error_message());
     std::cout << "Artists:\n"; for (const auto& a : resp.artists()) std::cout << "  - " << a.name() << "\n";

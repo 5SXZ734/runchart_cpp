@@ -10,6 +10,7 @@
 #include <unistd.h>
 #endif
 
+#include <chrono>
 #include <cstring>
 
 namespace {
@@ -39,9 +40,27 @@ HttpStreamServer::~HttpStreamServer() { stop(); }
 
 bool HttpStreamServer::start() {
     if (running_.exchange(true)) {
-        return true;
+        return startup_done_.load() && startup_ok_;
     }
+
+    {
+        std::lock_guard<std::mutex> lock(startup_mutex_);
+        startup_done_.store(false);
+        startup_ok_ = false;
+    }
+
     worker_ = std::thread(&HttpStreamServer::run, this);
+
+    std::unique_lock<std::mutex> lock(startup_mutex_);
+    startup_cv_.wait(lock, [this]() { return startup_done_.load(); });
+    if (!startup_ok_) {
+        running_.store(false);
+        if (worker_.joinable()) {
+            lock.unlock();
+            worker_.join();
+        }
+        return false;
+    }
     return true;
 }
 
@@ -63,11 +82,21 @@ void HttpStreamServer::stop() {
     }
 }
 
+void HttpStreamServer::setStartupResult(bool started) {
+    {
+        std::lock_guard<std::mutex> lock(startup_mutex_);
+        startup_ok_ = started;
+        startup_done_.store(true);
+    }
+    startup_cv_.notify_all();
+}
+
 void HttpStreamServer::run() {
 #ifdef _WIN32
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         running_.store(false);
+        setStartupResult(false);
         return;
     }
 #endif
@@ -78,6 +107,7 @@ void HttpStreamServer::run() {
         WSACleanup();
 #endif
         running_.store(false);
+        setStartupResult(false);
         return;
     }
     serverFd_ = static_cast<int>(serverSocket);
@@ -102,8 +132,11 @@ void HttpStreamServer::run() {
 #endif
         running_.store(false);
         serverFd_ = -1;
+        setStartupResult(false);
         return;
     }
+
+    setStartupResult(true);
 
     while (running_.load()) {
         SocketHandle client = accept(serverSocket, nullptr, nullptr);
@@ -122,7 +155,7 @@ void HttpStreamServer::run() {
         std::string status = "200 OK";
 
         if (req.find("GET /health") != std::string::npos) {
-            body = "ok\n";
+            body = "ok";
         } else if (req.find("GET /metrics") != std::string::npos) {
             body = metricsFn_ ? metricsFn_() : "";
         } else {
