@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,9 +23,12 @@ namespace {
 
 bool parseTrackId(const httplib::Request& req, std::int64_t* trackId) {
     if (trackId == nullptr) return false;
-    const auto idText = req.path_params.at("track_id");
+    if (req.matches.size() < 2) return false;
+    const std::string idText = req.matches[1].str();
+    if (idText.empty()) return false;
     try {
         *trackId = std::stoll(idText);
+        if (*trackId < 0) return false;
         return true;
     } catch (...) {
         return false;
@@ -96,10 +100,12 @@ bool HttpStreamServer::start() {
 
         std::int64_t trackId = 0;
         if (!parseTrackId(req, &trackId)) {
-            res.status = 404;
-            res.set_content("track not found\n", "text/plain");
+            std::cout << "stream request path=" << req.path << " track_id=parse_error" << std::endl;
+            res.status = 400;
+            res.set_content("invalid track id\n", "text/plain");
             return;
         }
+        std::cout << "stream request path=" << req.path << " track_id=" << trackId << std::endl;
 
         TrackRecord track{};
         if (!catalog_->findTrackById(trackId, &track)) {
