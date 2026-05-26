@@ -12,5 +12,12 @@ bool SessionAuth::isAuthorized(const grpc::ServerContext* context) const {
     if (it == md.end()) {
         return false;
     }
-    return std::string(it->second.data(), it->second.length()) == secret_;
+    return isAuthorizedToken(std::string(it->second.data(), it->second.length()));
+}
+
+bool SessionAuth::isAuthorizedToken(const std::string& token) const {
+    if (secret_.empty()) {
+        return true;
+    }
+    return token == secret_;
 }

@@ -201,6 +201,43 @@ std::vector<TrackRecord> Catalog::listTracks() const {
 	return searchTracks("");
 }
 
+bool Catalog::findTrackById(std::int64_t trackId, TrackRecord* out) const {
+    if (out == nullptr) {
+        return false;
+    }
+    sqlite3* db = nullptr;
+    if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_stmt* stmt = nullptr;
+    sqlite3_prepare_v2(
+        db,
+        "SELECT t.id,t.title,ar.name,al.title,t.track_number,t.file_path "
+        "FROM tracks t "
+        "JOIN artists ar ON ar.id=t.artist_id "
+        "JOIN albums al ON al.id=t.album_id "
+        "WHERE t.id=?",
+        -1,
+        &stmt,
+        nullptr);
+    sqlite3_bind_int64(stmt, 1, trackId);
+    bool found = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        *out = TrackRecord{
+            sqlite3_column_int64(stmt, 0),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
+            sqlite3_column_int(stmt, 4),
+            reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5))
+        };
+        found = true;
+    }
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    return found;
+}
+
 std::vector<ArtistRecord> Catalog::searchArtists(const std::string& query) const {
 	std::vector<ArtistRecord> out; sqlite3* db = nullptr;
 	if (sqlite3_open(dbPath_.c_str(), &db) != SQLITE_OK)

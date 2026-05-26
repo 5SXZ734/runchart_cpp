@@ -37,6 +37,7 @@ public:
     std::vector<ArtistRecord> listArtists() const;
     std::vector<AlbumRecord> listAlbums() const;
     std::vector<TrackRecord> listTracks() const;
+    bool findTrackById(std::int64_t trackId, TrackRecord* out) const;
     std::vector<ArtistRecord> searchArtists(const std::string& query) const;
     std::vector<AlbumRecord> searchAlbums(const std::string& query) const;
     std::vector<TrackRecord> searchTracks(const std::string& query) const;
