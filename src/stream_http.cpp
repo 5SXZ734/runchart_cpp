@@ -1,181 +1,171 @@
 #include "stream_http.h"
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include "catalog.h"
+#include "session_auth.h"
+
+#if __has_include("third_party/httplib.h")
+#include "third_party/httplib.h"
+#elif __has_include("httplib.h")
+#include "httplib.h"
 #else
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#error "cpp-httplib header not found. Place it at third_party/httplib.h"
 #endif
 
-#include <chrono>
-#include <cstring>
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace {
-#ifdef _WIN32
-using SocketHandle = SOCKET;
-constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
-void closeSocket(SocketHandle s) {
-    if (s != INVALID_SOCKET) {
-        closesocket(s);
+
+bool parseTrackId(const httplib::Request& req, std::int64_t* trackId) {
+    if (trackId == nullptr) return false;
+    if (req.matches.size() < 2) return false;
+    const std::string idText = req.matches[1].str();
+    if (idText.empty()) return false;
+    try {
+        *trackId = std::stoll(idText);
+        if (*trackId < 0) return false;
+        return true;
+    } catch (...) {
+        return false;
     }
-}
-#else
-using SocketHandle = int;
-constexpr SocketHandle kInvalidSocket = -1;
-void closeSocket(SocketHandle s) {
-    if (s >= 0) {
-        close(s);
-    }
-}
-#endif
 }
 
-HttpStreamServer::HttpStreamServer(std::string bindAddress, int port, MetricsFn metricsFn)
-    : bindAddress_(std::move(bindAddress)), port_(port), metricsFn_(std::move(metricsFn)) {}
+bool parseRangeHeader(const httplib::Request& req, std::size_t fileSize, std::size_t* start, std::size_t* end, bool* partial) {
+    if (start == nullptr || end == nullptr || partial == nullptr) return false;
+    *start = 0;
+    *end = fileSize > 0 ? fileSize - 1 : 0;
+    *partial = false;
+
+    const auto range = req.get_header_value("Range");
+    if (range.empty()) return true;
+    constexpr const char* prefix = "bytes=";
+    if (range.rfind(prefix, 0) != 0) return false;
+
+    const std::string body = range.substr(6);
+    const auto dash = body.find('-');
+    if (dash == std::string::npos) return false;
+
+    const std::string startText = body.substr(0, dash);
+    const std::string endText = body.substr(dash + 1);
+
+    try {
+        if (!startText.empty()) *start = static_cast<std::size_t>(std::stoull(startText));
+        if (!endText.empty()) *end = static_cast<std::size_t>(std::stoull(endText));
+    } catch (...) {
+        return false;
+    }
+
+    *partial = true;
+    return true;
+}
+
+}  // namespace
+
+HttpStreamServer::HttpStreamServer(std::string bindAddress, int port, MetricsFn metricsFn, const Catalog* catalog, const SessionAuth* auth)
+    : bindAddress_(std::move(bindAddress)), port_(port), metricsFn_(std::move(metricsFn)), catalog_(catalog), auth_(auth) {}
 
 HttpStreamServer::~HttpStreamServer() { stop(); }
 
 bool HttpStreamServer::start() {
-    if (running_.exchange(true)) {
-        return startup_done_.load() && startup_ok_;
-    }
+    if (running_.exchange(true)) return true;
 
-    {
-        std::lock_guard<std::mutex> lock(startup_mutex_);
-        startup_done_.store(false);
-        startup_ok_ = false;
-    }
+    auto server = std::make_unique<httplib::Server>();
 
-    worker_ = std::thread(&HttpStreamServer::run, this);
+    server->Get("/health", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content("ok", "text/plain");
+    });
 
-    std::unique_lock<std::mutex> lock(startup_mutex_);
-    startup_cv_.wait(lock, [this]() { return startup_done_.load(); });
-    if (!startup_ok_) {
-        running_.store(false);
-        if (worker_.joinable()) {
-            lock.unlock();
-            worker_.join();
+    server->Get("/metrics", [this](const httplib::Request&, httplib::Response& res) {
+        res.set_content(metricsFn_ ? metricsFn_() : std::string{}, "text/plain");
+    });
+
+    server->Get(R"(/stream/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        if (catalog_ == nullptr || auth_ == nullptr) {
+            res.status = 500;
+            res.set_content("server misconfigured\n", "text/plain");
+            return;
         }
-        return false;
-    }
+
+        const auto token = req.get_header_value("x-auth-token");
+        if (!auth_->isAuthorizedToken(token)) {
+            res.status = 401;
+            res.set_content("unauthorized\n", "text/plain");
+            return;
+        }
+
+        std::int64_t trackId = 0;
+        if (!parseTrackId(req, &trackId)) {
+            std::cout << "stream request path=" << req.path << " track_id=parse_error" << std::endl;
+            res.status = 400;
+            res.set_content("invalid track id\n", "text/plain");
+            return;
+        }
+        std::cout << "stream request path=" << req.path << " track_id=" << trackId << std::endl;
+
+        TrackRecord track{};
+        if (!catalog_->findTrackById(trackId, &track)) {
+            res.status = 404;
+            res.set_content("track not found\n", "text/plain");
+            return;
+        }
+
+        std::ifstream file(track.filePath, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            res.status = 404;
+            res.set_content("audio file missing\n", "text/plain");
+            return;
+        }
+
+        const std::size_t fileSize = static_cast<std::size_t>(file.tellg());
+        std::size_t start = 0;
+        std::size_t end = fileSize > 0 ? fileSize - 1 : 0;
+        bool partial = false;
+
+        if (!parseRangeHeader(req, fileSize, &start, &end, &partial)) {
+            res.status = 416;
+            res.set_header("Content-Range", "bytes */" + std::to_string(fileSize));
+            return;
+        }
+
+        if (fileSize == 0 || start >= fileSize || end < start) {
+            res.status = 416;
+            res.set_header("Content-Range", "bytes */" + std::to_string(fileSize));
+            return;
+        }
+
+        end = std::min(end, fileSize - 1);
+        const std::size_t contentLength = end - start + 1;
+        file.seekg(static_cast<std::streamoff>(start), std::ios::beg);
+
+        std::vector<char> payload(contentLength);
+        file.read(payload.data(), static_cast<std::streamsize>(contentLength));
+        const std::size_t got = static_cast<std::size_t>(file.gcount());
+
+        res.status = partial ? 206 : 200;
+        res.set_header("Accept-Ranges", "bytes");
+        if (partial) {
+            res.set_header("Content-Range", "bytes " + std::to_string(start) + "-" + std::to_string(start + got - 1) + "/" + std::to_string(fileSize));
+        }
+        res.set_content(std::string(payload.data(), got), "audio/mpeg");
+    });
+
+    server_ = server.release();
+    worker_ = std::thread([this]() {
+        server_->listen(bindAddress_.c_str(), port_);
+        running_.store(false);
+    });
     return true;
 }
 
 void HttpStreamServer::stop() {
-    if (!running_.exchange(false)) {
-        return;
-    }
-    if (serverFd_ >= 0) {
-#ifdef _WIN32
-        shutdown(static_cast<SOCKET>(serverFd_), SD_BOTH);
-#else
-        shutdown(serverFd_, SHUT_RDWR);
-#endif
-        closeSocket(static_cast<SocketHandle>(serverFd_));
-        serverFd_ = -1;
-    }
-    if (worker_.joinable()) {
-        worker_.join();
-    }
-}
-
-void HttpStreamServer::setStartupResult(bool started) {
-    {
-        std::lock_guard<std::mutex> lock(startup_mutex_);
-        startup_ok_ = started;
-        startup_done_.store(true);
-    }
-    startup_cv_.notify_all();
-}
-
-void HttpStreamServer::run() {
-#ifdef _WIN32
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        running_.store(false);
-        setStartupResult(false);
-        return;
-    }
-#endif
-
-    SocketHandle serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == kInvalidSocket) {
-#ifdef _WIN32
-        WSACleanup();
-#endif
-        running_.store(false);
-        setStartupResult(false);
-        return;
-    }
-    serverFd_ = static_cast<int>(serverSocket);
-
-    int opt = 1;
-    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
-
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(port_));
-    if (bindAddress_ == "0.0.0.0") {
-        addr.sin_addr.s_addr = INADDR_ANY;
-    } else {
-        inet_pton(AF_INET, bindAddress_.c_str(), &addr.sin_addr);
-    }
-
-    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0 ||
-        listen(serverSocket, 8) < 0) {
-        closeSocket(serverSocket);
-#ifdef _WIN32
-        WSACleanup();
-#endif
-        running_.store(false);
-        serverFd_ = -1;
-        setStartupResult(false);
-        return;
-    }
-
-    setStartupResult(true);
-
-    while (running_.load()) {
-        SocketHandle client = accept(serverSocket, nullptr, nullptr);
-        if (client == kInvalidSocket) {
-            continue;
-        }
-
-        char buffer[2048] = {0};
-#ifdef _WIN32
-        const int n = recv(client, buffer, static_cast<int>(sizeof(buffer) - 1), 0);
-#else
-        const ssize_t n = read(client, buffer, sizeof(buffer) - 1);
-#endif
-        std::string req = n > 0 ? std::string(buffer, static_cast<std::size_t>(n)) : "";
-        std::string body;
-        std::string status = "200 OK";
-
-        if (req.find("GET /health") != std::string::npos) {
-            body = "ok";
-        } else if (req.find("GET /metrics") != std::string::npos) {
-            body = metricsFn_ ? metricsFn_() : "";
-        } else {
-            status = "404 Not Found";
-            body = "not found\n";
-        }
-
-        const std::string resp = "HTTP/1.1 " + status + "\r\nContent-Type: text/plain\r\nContent-Length: " +
-                                 std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
-#ifdef _WIN32
-        send(client, resp.c_str(), static_cast<int>(resp.size()), 0);
-#else
-        send(client, resp.c_str(), resp.size(), 0);
-#endif
-        closeSocket(client);
-    }
-
-    closeSocket(serverSocket);
-    serverFd_ = -1;
-#ifdef _WIN32
-    WSACleanup();
-#endif
+    if (!running_.exchange(false)) return;
+    if (server_ != nullptr) server_->stop();
+    if (worker_.joinable()) worker_.join();
+    delete server_;
+    server_ = nullptr;
 }

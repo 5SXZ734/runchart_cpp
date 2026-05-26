@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 
     HttpStreamServer httpServer(config.http_bind_address, config.http_port, [&metrics]() {
         return std::string("runchart_server_up 1\n") + metrics.toPrometheusText();
-    });
+    }, &catalog, &auth);
 
     const std::string httpAddress = config.http_bind_address + ":" + std::to_string(config.http_port);
     if (httpServer.start()) {

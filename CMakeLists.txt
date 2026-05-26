@@ -133,6 +133,7 @@ add_library(runchart_lib
 
 target_include_directories(runchart_lib PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     "${GENERATED_DIR}"
 )
 
