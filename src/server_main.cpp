@@ -47,10 +47,17 @@ int main(int argc, char** argv) {
     RunChartService service(&catalog, &auth, &metrics);
 
     HttpStreamServer httpServer(config.http_bind_address, config.http_port, [&metrics]() {
-        metrics.health_requests.fetch_add(1);
-        return metrics.toPrometheusText();
+        return std::string("runchart_server_up 1\n") + metrics.toPrometheusText();
     });
-    httpServer.start();
+
+    const std::string httpAddress = config.http_bind_address + ":" + std::to_string(config.http_port);
+    if (httpServer.start()) {
+        std::cout << "HTTP server listening on " << httpAddress << std::endl;
+        StructuredLogger::instance().log("INFO", "http_server_start", "", "", {{"address", httpAddress}});
+    } else {
+        std::cerr << "Failed to start HTTP server on " << httpAddress << std::endl;
+        StructuredLogger::instance().log("ERROR", "http_server_start_failed", "", "", {{"address", httpAddress}});
+    }
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort(config.grpc_address, grpc::InsecureServerCredentials());
