@@ -11,10 +11,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(gRPC CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(SQLite3 REQUIRED)
-find_package(TagLib REQUIRED)
 
-# vcpkg provides Protobuf CONFIG mode.
+# -------------------- Protobuf --------------------
+# vcpkg usually provides Protobuf CONFIG mode.
 # Ubuntu apt often provides only CMake module mode.
+
 find_package(Protobuf CONFIG QUIET)
 
 if(Protobuf_FOUND AND TARGET protobuf::libprotobuf)
@@ -42,7 +43,41 @@ else()
     endif()
 endif()
 
-# gRPC plugin target should exist from find_package(gRPC CONFIG REQUIRED)
+# -------------------- TagLib --------------------
+# vcpkg may provide TagLibConfig.cmake.
+# Ubuntu libtag1-dev usually does NOT, so use pkg-config fallback.
+
+find_package(TagLib CONFIG QUIET)
+
+if(TagLib_FOUND)
+    message(STATUS "Using TagLib CONFIG package")
+
+    if(TARGET TagLib::TagLib)
+        set(RUNCHART_TAGLIB_LIB TagLib::TagLib)
+    elseif(TARGET TagLib::tag)
+        set(RUNCHART_TAGLIB_LIB TagLib::tag)
+    elseif(TARGET tag)
+        set(RUNCHART_TAGLIB_LIB tag)
+    else()
+        message(FATAL_ERROR "TagLib package found, but no known TagLib target exists")
+    endif()
+else()
+    message(STATUS "Using TagLib via pkg-config")
+
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(TAGLIB REQUIRED taglib)
+
+    add_library(runchart_taglib INTERFACE)
+    target_include_directories(runchart_taglib INTERFACE ${TAGLIB_INCLUDE_DIRS})
+    target_compile_options(runchart_taglib INTERFACE ${TAGLIB_CFLAGS_OTHER})
+    target_link_directories(runchart_taglib INTERFACE ${TAGLIB_LIBRARY_DIRS})
+    target_link_libraries(runchart_taglib INTERFACE ${TAGLIB_LIBRARIES})
+
+    set(RUNCHART_TAGLIB_LIB runchart_taglib)
+endif()
+
+# -------------------- gRPC plugin --------------------
+
 if(NOT TARGET gRPC::grpc_cpp_plugin)
     message(FATAL_ERROR "gRPC::grpc_cpp_plugin target not found")
 endif()
@@ -110,7 +145,7 @@ target_link_libraries(runchart_lib PUBLIC
     ${RUNCHART_PROTOBUF_LIB}
     nlohmann_json::nlohmann_json
     SQLite::SQLite3
-    TagLib::tag
+    ${RUNCHART_TAGLIB_LIB}
 )
 
 if(WIN32)

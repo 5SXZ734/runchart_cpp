@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     protobuf-compiler-grpc \
     libgrpc++-dev \
-    nlohmann-json3-dev
+    nlohmann-json3-dev \
+	libsqlite3-dev \
+	libtag1-dev
 
 WORKDIR /app
 
