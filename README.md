@@ -100,6 +100,41 @@ docker load -i runchart-server-latest.tar
 docker run --rm -p 3030:3030 -p 8080:8080 --env-file .env runchart-server:latest
 ```
 
+
+### Configure database path
+
+`runchart_server` resolves the SQLite DB path in this order:
+
+1. `--db <path>` command-line option
+2. `RUNCHART_DB=<path>` environment variable
+3. fallback `library.db` (current working directory)
+
+Examples:
+
+**Native Windows**
+```batch
+runchart_server.exe --db D:\runchart-data\library.db
+```
+
+**Native Linux/WSL**
+```bash
+./runchart_server --db ~/runchart-data/library.db
+```
+
+**Docker on Synology**
+```bash
+docker run -d \
+  --name runchart \
+  --restart unless-stopped \
+  -p 3030:3030 \
+  -p 8080:8080 \
+  -v /volume1/MUSIC:/music:ro \
+  -v /volume1/docker/runchart/data:/app/data \
+  runchart:latest
+
+./runchart_client 192.168.1.4:3030 scan /music
+```
+
 ## Running
 
 ### Start the Server (Windows)

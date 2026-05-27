@@ -1,6 +1,7 @@
 #include <atomic>
 #include <csignal>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,15 +22,30 @@ std::atomic<bool> g_shutdown_requested{false};
 extern "C" void HandleSigInt(int signal) {
     if (signal == SIGINT) g_shutdown_requested.store(true, std::memory_order_relaxed);
 }
+
+std::string resolveDatabasePath(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--db" && i + 1 < argc) {
+            return argv[i + 1];
+        }
+    }
+
+    if (const char* dbPathEnv = std::getenv("RUNCHART_DB")) {
+        if (*dbPathEnv != '\0') {
+            return dbPathEnv;
+        }
+    }
+
+    return "library.db";
+}
 }
 
 int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-
     const ServerConfig config = ServerConfig::load();
+    const std::string dbPath = resolveDatabasePath(argc, argv);
     StructuredLogger::instance().setEnabled(config.structured_logging);
     StructuredLogger::instance().setLogPath("runchart_server.log");
+    std::cout << "Using database: " << dbPath << std::endl;
 
 #if defined(_WIN32)
     std::signal(SIGINT, HandleSigInt);
@@ -40,7 +56,7 @@ int main(int argc, char** argv) {
     pthread_sigmask(SIG_BLOCK, &signal_set, nullptr);
 #endif
 
-    Catalog catalog;
+    Catalog catalog(dbPath);
     catalog.scanFromNasPath(config.nas_scan_path);
     SessionAuth auth(config.auth_secret);
     Metrics metrics;
