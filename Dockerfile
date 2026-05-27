@@ -20,4 +20,4 @@ COPY . .
 RUN cmake -S . -B build
 RUN cmake --build build
 
-CMD ["/app/build/runchart_server"]
+CMD ["/app/build/runchart_server", "--db", "/app/data/library.db"]
