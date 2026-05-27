@@ -23,6 +23,11 @@ This is a C++17 port of the Java Maven gRPC demo, converted to run on Windows wi
 - **SendAndCheck**: Bidirectional streaming with warning responses
 - Service port: `3030` (same as original Java port)
 
+
+## New Windows 11 Setup
+
+For a complete step-by-step setup (WSL2, Docker Desktop, native Visual Studio/vcpkg, and verification), see **`WINDOWS_SETUP_GUIDE.md`**.
+
 ## Prerequisites
 
 ### Windows Development
