@@ -77,7 +77,7 @@ std::string Measurement::toString() const {
     std::ostringstream out;
     out << "Timestamp: " << std::put_time(&tm, "%Y-%m-%d %H:%M:%S UTC") << '\n'
         << "Part number: " << partNumber << '\n'
-        << "Spec: " << nominal << "±" << tolerance << '\n'
+        << "Spec: " << nominal << " +/- " << tolerance << '\n'
         << "Measurement: " << measurement << '\n';
     return out.str();
 }
