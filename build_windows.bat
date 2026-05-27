@@ -1,57 +1,61 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
-set VCPKG_ROOT=C:\WORK\external\vcpkg
-set TRIPLET=x64-windows
+set "TRIPLET=x64-windows"
 
-if not exist "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" (
-    echo Error: Could not find vcpkg toolchain at "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake"
+if not defined VCPKG_ROOT (
+    echo Error: VCPKG_ROOT is not set.
     echo.
-    echo Please update the VCPKG_ROOT variable in this script to match your vcpkg installation.
+    echo Set it once on this machine, for example:
+    echo   setx VCPKG_ROOT D:\path\to\vcpkg
+    echo.
+    echo Then close and reopen this terminal.
     exit /b 1
 )
 
-echo Installing vcpkg dependencies...
-"%VCPKG_ROOT%\vcpkg.exe" install grpc:%TRIPLET% protobuf:%TRIPLET% nlohmann-json:%TRIPLET%
-if errorlevel 1 (
-    echo Error: vcpkg install failed
-    exit /b %errorlevel%
+if not exist "%VCPKG_ROOT%\vcpkg.exe" (
+    echo Error: vcpkg.exe not found under VCPKG_ROOT:
+    echo   %VCPKG_ROOT%
+    exit /b 1
 )
+
+if not exist "%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" (
+    echo Error: vcpkg CMake toolchain not found under VCPKG_ROOT:
+    echo   %VCPKG_ROOT%
+    exit /b 1
+)
+
+where cmake >nul 2>nul
+if errorlevel 1 (
+    echo Error: cmake.exe not found in PATH.
+    echo Install CMake or run from a Visual Studio Developer Command Prompt.
+    exit /b 1
+)
+
+if not exist "third_party" mkdir "third_party"
+if not exist "third_party\httplib.h" (
+    echo Downloading cpp-httplib...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/yhirose/cpp-httplib/master/httplib.h' -OutFile 'third_party\httplib.h'"
+    if errorlevel 1 exit /b %errorlevel%
+)
+
+echo Using VCPKG_ROOT=%VCPKG_ROOT%
+echo Installing vcpkg dependencies...
+"%VCPKG_ROOT%\vcpkg.exe" install grpc:%TRIPLET% protobuf:%TRIPLET% nlohmann-json:%TRIPLET% sqlite3:%TRIPLET% taglib:%TRIPLET%
+if errorlevel 1 exit /b %errorlevel%
 
 echo.
 echo Configuring CMake...
-cmake --preset windows-vcpkg
-if errorlevel 1 (
-    echo Error: CMake configure failed
-    exit /b %errorlevel%
-)
+cmake --fresh --preset windows-vcpkg
+if errorlevel 1 exit /b %errorlevel%
 
 echo.
 echo Building Release configuration...
 cmake --build --preset windows-vcpkg-release
-if errorlevel 1 (
-    echo Error: CMake build failed
-    exit /b %errorlevel%
-)
+if errorlevel 1 exit /b %errorlevel%
 
 echo.
-echo ============================================================
-echo Build completed successfully!
-echo ============================================================
-echo.
-echo Server executable:
-echo   build\windows-vcpkg\Release\runchart_server.exe
-echo.
-echo Client executable:
-echo   build\windows-vcpkg\Release\runchart_client.exe
-echo.
-echo Example usage:
-echo   1. Start server in one terminal:
-echo      build\windows-vcpkg\Release\runchart_server.exe
-echo.
-echo   2. Run client in another terminal:
-echo      build\windows-vcpkg\Release\runchart_client.exe localhost:3030 data.json
-echo.
-echo   3. To connect to remote server (e.g., NAS):
-echo      build\windows-vcpkg\Release\runchart_client.exe 192.168.1.4:3030 data.json
-echo.
+echo Build completed successfully.
+echo Server: build\windows-vcpkg\Release\runchart_server.exe
+echo Client: build\windows-vcpkg\Release\runchart_client.exe
