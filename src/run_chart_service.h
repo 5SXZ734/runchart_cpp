@@ -40,6 +40,9 @@ public:
     grpc::Status ListTracks(grpc::ServerContext* context,
                             const runchart::ListTracksRequest* request,
                             runchart::ListTracksResponse* response) override;
+    grpc::Status GetTrack(grpc::ServerContext* context,
+                          const runchart::GetTrackRequest* request,
+                          runchart::GetTrackResponse* response) override;
     grpc::Status Search(grpc::ServerContext* context,
                         const runchart::SearchRequest* request,
                         runchart::SearchResponse* response) override;

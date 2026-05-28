@@ -8,6 +8,15 @@
 #include "measurement.h"
 #include "runchart.grpc.pb.h"
 
+struct ClientTrack {
+    std::int64_t id;
+    std::string title;
+    std::string artistName;
+    std::string albumTitle;
+    int trackNumber;
+    std::string filePath;
+};
+
 class RunChartClient {
 public:
     explicit RunChartClient(std::shared_ptr<grpc::Channel> channel);
@@ -20,6 +29,7 @@ public:
     void listArtists();
     void listAlbums();
     void listTracks();
+    ClientTrack getTrack(std::int64_t trackId);
     void search(const std::string& query);
 
 private:

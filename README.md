@@ -34,8 +34,9 @@ For a complete step-by-step setup (WSL2, Docker Desktop, native Visual Studio/vc
 
 - Visual Studio 2022 or later (or any CMake-compatible generator)
 - CMake 3.20+
-- vcpkg with gRPC, protobuf, and nlohmann-json packages
+- vcpkg with gRPC, protobuf, nlohmann-json, SQLite, and TagLib packages
 - vcpkg root: `C:\WORK\external\vcpkg` (or update CMakePresets.json)
+- VLC/libVLC 3.x for client audio playback; this project defaults `RUNCHART_VLC_ROOT` to `D:\WORK\external\vlc-3.0.23`
 
 ### Linux / Docker
 
@@ -63,7 +64,7 @@ This script will:
 cd C:\path\to\runchart_cpp
 
 REM Install dependencies
-C:\WORK\external\vcpkg\vcpkg install grpc:x64-windows protobuf:x64-windows nlohmann-json:x64-windows
+C:\WORK\external\vcpkg\vcpkg install grpc:x64-windows protobuf:x64-windows nlohmann-json:x64-windows sqlite3:x64-windows taglib:x64-windows
 
 REM Configure and build
 cmake --preset windows-vcpkg
@@ -76,7 +77,7 @@ REM Executables are in: build\windows-vcpkg\Release\
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y cmake protobuf-compiler libgrpc-dev libgrpc++-dev nlohmann-json3-dev
+sudo apt-get install -y cmake pkg-config protobuf-compiler libgrpc-dev libgrpc++-dev nlohmann-json3-dev libsqlite3-dev libtag1-dev libvlc-dev
 
 cd /path/to/runchart_cpp
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -157,20 +158,34 @@ Press Ctrl+C to stop.
 
 ### Run the Client (Windows)
 
-**Local server:**
+Send measurements and receive warnings:
 ```batch
-build\windows-vcpkg\Release\runchart_client.exe localhost:3030 data.json
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 send_and_check data.json
+```
+
+Scan a music folder, list tracks, and play a track by ID:
+```batch
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 scan D:\Music
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 list_tracks
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 play 42
+```
+
+If Windows cannot find `libvlc.dll` at runtime, add the VLC root to `PATH` before running the client:
+
+```batch
+set PATH=D:\WORK\external\vlc-3.0.23;%PATH%
 ```
 
 **Remote server (e.g., Synology NAS at 192.168.1.4):**
 ```batch
-build\windows-vcpkg\Release\runchart_client.exe 192.168.1.4:3030 data.json
+build\windows-vcpkg\Release\runchart_client.exe 192.168.1.4:3030 list_tracks
 ```
 
 ### Run the Client (Linux)
 
 ```bash
-./build/runchart_client localhost:3030 data.json
+./build/runchart_client localhost:3030 send_and_check data.json
+./build/runchart_client localhost:3030 play 42
 ```
 
 ## File Structure
