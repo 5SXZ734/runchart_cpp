@@ -1,4 +1,5 @@
 #include "run_chart_client.h"
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -125,30 +126,60 @@ std::uint32_t RunChartClient::scanLibrary(const std::string& rootPath) {
     return resp.tracks_scanned();
 }
 
-void RunChartClient::listArtists() {
+std::vector<ClientArtist> RunChartClient::listArtistsData() {
     grpc::ClientContext context;
     runchart::ListArtistsRequest req;
-    addAuthToken(&context);
     runchart::ListArtistsResponse resp;
+    addAuthToken(&context);
     auto status = stub_->ListArtists(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListArtists failed: " + status.error_message());
-    for (const auto& a : resp.artists()) std::cout << a.id() << " | " << a.name() << "\n";
+
+    std::vector<ClientArtist> artists;
+    artists.reserve(static_cast<std::size_t>(resp.artists_size()));
+    for (const auto& a : resp.artists()) artists.push_back(ClientArtist{a.id(), a.name()});
+    return artists;
 }
 
-void RunChartClient::listAlbums() {
-    grpc::ClientContext context; runchart::ListAlbumsRequest req; runchart::ListAlbumsResponse resp;
+std::vector<ClientAlbum> RunChartClient::listAlbumsData() {
+    grpc::ClientContext context;
+    runchart::ListAlbumsRequest req;
+    runchart::ListAlbumsResponse resp;
     addAuthToken(&context);
     auto status = stub_->ListAlbums(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListAlbums failed: " + status.error_message());
-    for (const auto& a : resp.albums()) std::cout << a.id() << " | " << a.artist_name() << " | " << a.title() << "\n";
+
+    std::vector<ClientAlbum> albums;
+    albums.reserve(static_cast<std::size_t>(resp.albums_size()));
+    for (const auto& a : resp.albums()) albums.push_back(ClientAlbum{a.id(), a.title(), a.artist_name()});
+    return albums;
 }
 
-void RunChartClient::listTracks() {
-    grpc::ClientContext context; runchart::ListTracksRequest req; runchart::ListTracksResponse resp;
+std::vector<ClientTrack> RunChartClient::listTracksData() {
+    grpc::ClientContext context;
+    runchart::ListTracksRequest req;
+    runchart::ListTracksResponse resp;
     addAuthToken(&context);
     auto status = stub_->ListTracks(&context, req, &resp);
     if (!status.ok()) throw std::runtime_error("ListTracks failed: " + status.error_message());
-    for (const auto& t : resp.tracks()) std::cout << t.id() << " | " << t.artist_name() << " | " << t.album_title() << " | " << t.track_number() << " | " << t.title() << " | " << t.file_path() << "\n";
+
+    std::vector<ClientTrack> tracks;
+    tracks.reserve(static_cast<std::size_t>(resp.tracks_size()));
+    for (const auto& t : resp.tracks()) {
+        tracks.push_back(ClientTrack{t.id(), t.title(), t.artist_name(), t.album_title(), t.track_number(), t.file_path()});
+    }
+    return tracks;
+}
+
+void RunChartClient::listArtists() {
+    for (const auto& a : listArtistsData()) std::cout << a.id << " | " << a.name << "\n";
+}
+
+void RunChartClient::listAlbums() {
+    for (const auto& a : listAlbumsData()) std::cout << a.id << " | " << a.artistName << " | " << a.title << "\n";
+}
+
+void RunChartClient::listTracks() {
+    for (const auto& t : listTracksData()) std::cout << t.id << " | " << t.artistName << " | " << t.albumTitle << " | " << t.trackNumber << " | " << t.title << " | " << t.filePath << "\n";
 }
 
 ClientTrack RunChartClient::getTrack(std::int64_t trackId) {

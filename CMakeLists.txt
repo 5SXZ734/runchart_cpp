@@ -77,6 +77,27 @@ else()
 endif()
 
 
+# -------------------- Qt Widgets (optional desktop UI) --------------------
+
+option(RUNCHART_ENABLE_QT_UI "Build the Qt Widgets desktop audio player when Qt is available" ON)
+set(RUNCHART_QT_WIDGETS_TARGET "")
+
+if(RUNCHART_ENABLE_QT_UI)
+    find_package(Qt6 COMPONENTS Widgets QUIET)
+    if(Qt6_FOUND)
+        set(RUNCHART_QT_WIDGETS_TARGET Qt6::Widgets)
+        message(STATUS "Qt Widgets desktop UI enabled with Qt6")
+    else()
+        find_package(Qt5 COMPONENTS Widgets QUIET)
+        if(Qt5_FOUND)
+            set(RUNCHART_QT_WIDGETS_TARGET Qt5::Widgets)
+            message(STATUS "Qt Widgets desktop UI enabled with Qt5")
+        else()
+            message(WARNING "Qt Widgets was not found; runchart_desktop will not be built")
+        endif()
+    endif()
+endif()
+
 # -------------------- libVLC (optional client audio playback) --------------------
 
 option(RUNCHART_ENABLE_VLC "Enable client-side audio playback via libVLC when available" ON)
@@ -227,14 +248,40 @@ if(RUNCHART_WITH_LIBVLC)
     target_link_libraries(runchart_client PRIVATE runchart_vlc)
 endif()
 
+# -------------------- Desktop UI executable --------------------
+
+if(RUNCHART_QT_WIDGETS_TARGET)
+    add_executable(runchart_desktop
+        src/desktop_main.cpp
+        src/playback_controller.cpp
+        src/audio_player.cpp
+    )
+
+    target_link_libraries(runchart_desktop PRIVATE
+        runchart_lib
+        ${RUNCHART_QT_WIDGETS_TARGET}
+    )
+
+    if(RUNCHART_WITH_LIBVLC)
+        target_compile_definitions(runchart_desktop PRIVATE RUNCHART_WITH_LIBVLC)
+        target_link_libraries(runchart_desktop PRIVATE runchart_vlc)
+    endif()
+endif()
+
 # -------------------- Warnings --------------------
 
 if(MSVC)
     target_compile_options(runchart_lib PRIVATE /W3 /permissive-)
     target_compile_options(runchart_server PRIVATE /W3 /permissive-)
     target_compile_options(runchart_client PRIVATE /W3 /permissive-)
+    if(TARGET runchart_desktop)
+        target_compile_options(runchart_desktop PRIVATE /W3 /permissive-)
+    endif()
 else()
     target_compile_options(runchart_lib PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(runchart_server PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(runchart_client PRIVATE -Wall -Wextra -Wpedantic)
+    if(TARGET runchart_desktop)
+        target_compile_options(runchart_desktop PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
 endif()

@@ -8,6 +8,17 @@
 #include "measurement.h"
 #include "runchart.grpc.pb.h"
 
+struct ClientArtist {
+    std::int64_t id;
+    std::string name;
+};
+
+struct ClientAlbum {
+    std::int64_t id;
+    std::string title;
+    std::string artistName;
+};
+
 struct ClientTrack {
     std::int64_t id;
     std::string title;
@@ -26,6 +37,9 @@ public:
     void monitor();
     void sendAndCheck(const std::string& jsonPath);
     std::uint32_t scanLibrary(const std::string& rootPath);
+    std::vector<ClientArtist> listArtistsData();
+    std::vector<ClientAlbum> listAlbumsData();
+    std::vector<ClientTrack> listTracksData();
     void listArtists();
     void listAlbums();
     void listTracks();
