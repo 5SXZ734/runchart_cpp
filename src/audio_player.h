@@ -2,6 +2,31 @@
 
 #include <string>
 
+class LibVlcPlayer {
+public:
+    LibVlcPlayer();
+    ~LibVlcPlayer();
+
+    LibVlcPlayer(const LibVlcPlayer&) = delete;
+    LibVlcPlayer& operator=(const LibVlcPlayer&) = delete;
+
+    void playFile(const std::string& filePath);
+    void togglePause();
+    void stop();
+    void setVolume(int volume);
+    void setPosition(float position);
+
+    bool isPlaying() const;
+    int volume() const;
+    float position() const;
+    long long durationMs() const;
+    long long currentTimeMs() const;
+
+private:
+    struct Impl;
+    Impl* impl_;
+};
+
 class AudioPlayer {
 public:
     AudioPlayer();
@@ -13,6 +38,5 @@ public:
     void playFile(const std::string& filePath);
 
 private:
-    struct Impl;
-    Impl* impl_;
+    LibVlcPlayer player_;
 };
