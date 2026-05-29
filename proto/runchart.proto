@@ -59,6 +59,9 @@ message ListAlbumsResponse { repeated Album albums = 1; }
 message ListTracksRequest {}
 message ListTracksResponse { repeated Track tracks = 1; }
 
+message GetTrackRequest { int64 id = 1; }
+message GetTrackResponse { Track track = 1; }
+
 message SearchRequest { string query = 1; }
 message SearchResponse {
   repeated Artist artists = 1;
@@ -76,5 +79,6 @@ service RunChartService {
   rpc ListArtists(ListArtistsRequest) returns (ListArtistsResponse) {}
   rpc ListAlbums(ListAlbumsRequest) returns (ListAlbumsResponse) {}
   rpc ListTracks(ListTracksRequest) returns (ListTracksResponse) {}
+  rpc GetTrack(GetTrackRequest) returns (GetTrackResponse) {}
   rpc Search(SearchRequest) returns (SearchResponse) {}
 }

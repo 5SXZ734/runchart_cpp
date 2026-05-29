@@ -115,7 +115,10 @@ sudo apt-get install -y \
   libprotobuf-dev \
   libgrpc-dev \
   libgrpc++-dev \
-  nlohmann-json3-dev
+  nlohmann-json3-dev \
+  libsqlite3-dev \
+  libtag1-dev \
+  libvlc-dev
 ```
 
 Optional helpful tools:
@@ -145,7 +148,7 @@ In a second terminal run client:
 
 ```bash
 cd ~/dev/runchart_cpp
-./build/runchart_client localhost:3030 data.json
+./build/runchart_client localhost:3030 send_and_check data.json
 ```
 
 Expected behavior:
@@ -213,10 +216,24 @@ cd vcpkg
 ### 8.2 Install dependencies via vcpkg
 
 ```powershell
-.\vcpkg install grpc:x64-windows protobuf:x64-windows nlohmann-json:x64-windows
+.\vcpkg install grpc:x64-windows protobuf:x64-windows nlohmann-json:x64-windows sqlite3:x64-windows taglib:x64-windows
 ```
 
-### 8.3 Build this project
+### 8.3 Install VLC/libVLC for client playback
+
+Install or extract VLC 3.x so the libVLC SDK is available at:
+
+```powershell
+D:\WORK\external\vlc-3.0.23
+```
+
+The CMake build uses this as the default `RUNCHART_VLC_ROOT`. If your VLC install is elsewhere, pass `-DRUNCHART_VLC_ROOT=<path>` during CMake configure. At runtime, ensure Windows can find `libvlc.dll`:
+
+```powershell
+$env:PATH = "D:\WORK\external\vlc-3.0.23;$env:PATH"
+```
+
+### 8.4 Build this project
 
 From repo root in Windows shell:
 
@@ -230,7 +247,7 @@ Artifacts:
 - `build\windows-vcpkg\Release\runchart_server.exe`
 - `build\windows-vcpkg\Release\runchart_client.exe`
 
-### 8.4 Run on Windows
+### 8.5 Run on Windows
 
 Server:
 
@@ -241,7 +258,9 @@ build\windows-vcpkg\Release\runchart_server.exe
 Client:
 
 ```powershell
-build\windows-vcpkg\Release\runchart_client.exe localhost:3030 data.json
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 send_and_check data.json
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 list_tracks
+build\windows-vcpkg\Release\runchart_client.exe localhost:3030 play 42
 ```
 
 ---
@@ -339,7 +358,7 @@ cmake --build build -j"$(nproc)"
 3. Client call:
 
 ```bash
-./build/runchart_client localhost:3030 data.json
+./build/runchart_client localhost:3030 send_and_check data.json
 ```
 
 4. Docker runtime:

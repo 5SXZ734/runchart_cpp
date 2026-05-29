@@ -76,6 +76,58 @@ else()
     set(RUNCHART_TAGLIB_LIB runchart_taglib)
 endif()
 
+
+# -------------------- libVLC (optional client audio playback) --------------------
+
+option(RUNCHART_ENABLE_VLC "Enable client-side audio playback via libVLC when available" ON)
+set(RUNCHART_VLC_ROOT "D:/WORK/external/vlc-3.0.23" CACHE PATH "Root directory of a VLC/libVLC SDK installation")
+set(RUNCHART_WITH_LIBVLC OFF)
+
+if(RUNCHART_ENABLE_VLC)
+    if(WIN32)
+        find_path(RUNCHART_VLC_INCLUDE_DIR
+            NAMES vlc/vlc.h
+            PATHS "${RUNCHART_VLC_ROOT}/sdk/include"
+            NO_DEFAULT_PATH
+        )
+        find_library(RUNCHART_VLC_LIBRARY
+            NAMES libvlc vlc
+            PATHS "${RUNCHART_VLC_ROOT}/sdk/lib"
+            NO_DEFAULT_PATH
+        )
+    else()
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(LIBVLC QUIET libvlc)
+        endif()
+        if(LIBVLC_FOUND)
+            set(RUNCHART_VLC_INCLUDE_DIR ${LIBVLC_INCLUDE_DIRS})
+            set(RUNCHART_VLC_LIBRARY ${LIBVLC_LIBRARIES})
+            set(RUNCHART_VLC_LIBRARY_DIRS ${LIBVLC_LIBRARY_DIRS})
+            set(RUNCHART_VLC_COMPILE_OPTIONS ${LIBVLC_CFLAGS_OTHER})
+        else()
+            find_path(RUNCHART_VLC_INCLUDE_DIR NAMES vlc/vlc.h)
+            find_library(RUNCHART_VLC_LIBRARY NAMES vlc libvlc)
+        endif()
+    endif()
+
+    if(RUNCHART_VLC_INCLUDE_DIR AND RUNCHART_VLC_LIBRARY)
+        add_library(runchart_vlc INTERFACE)
+        target_include_directories(runchart_vlc INTERFACE ${RUNCHART_VLC_INCLUDE_DIR})
+        target_link_libraries(runchart_vlc INTERFACE ${RUNCHART_VLC_LIBRARY})
+        if(DEFINED RUNCHART_VLC_LIBRARY_DIRS)
+            target_link_directories(runchart_vlc INTERFACE ${RUNCHART_VLC_LIBRARY_DIRS})
+        endif()
+        if(DEFINED RUNCHART_VLC_COMPILE_OPTIONS)
+            target_compile_options(runchart_vlc INTERFACE ${RUNCHART_VLC_COMPILE_OPTIONS})
+        endif()
+        set(RUNCHART_WITH_LIBVLC ON)
+        message(STATUS "Client audio playback enabled with libVLC")
+    else()
+        message(WARNING "libVLC was not found; runchart_client play command will report audio playback as unavailable")
+    endif()
+endif()
+
 # -------------------- gRPC plugin --------------------
 
 if(NOT TARGET gRPC::grpc_cpp_plugin)
@@ -165,9 +217,15 @@ target_link_libraries(runchart_server PRIVATE runchart_lib)
 
 add_executable(runchart_client
     src/client_main.cpp
+    src/audio_player.cpp
 )
 
 target_link_libraries(runchart_client PRIVATE runchart_lib)
+
+if(RUNCHART_WITH_LIBVLC)
+    target_compile_definitions(runchart_client PRIVATE RUNCHART_WITH_LIBVLC)
+    target_link_libraries(runchart_client PRIVATE runchart_vlc)
+endif()
 
 # -------------------- Warnings --------------------
 

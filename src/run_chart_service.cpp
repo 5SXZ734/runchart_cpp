@@ -123,6 +123,16 @@ bool RunChartService::buildWarning(const Measurement& m, runchart::Warning* warn
 
 void RunChartService::stop() { stopping_.store(true); }
 
+namespace {
+void populateTrackMessage(const TrackRecord& track, runchart::Track* out) {
+    out->set_id(track.id);
+    out->set_title(track.title);
+    out->set_artist_name(track.artistName);
+    out->set_album_title(track.albumTitle);
+    out->set_track_number(track.trackNumber);
+    out->set_file_path(track.filePath);
+}
+}
 
 Status RunChartService::ScanLibrary(ServerContext* context, const runchart::ScanRequest* request, runchart::ScanResponse* response) {
     if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
@@ -145,7 +155,17 @@ Status RunChartService::ListAlbums(ServerContext* context, const runchart::ListA
 
 Status RunChartService::ListTracks(ServerContext* context, const runchart::ListTracksRequest*, runchart::ListTracksResponse* response) {
     if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
-    for (const auto& t : catalog_->listTracks()) { auto* out = response->add_tracks(); out->set_id(t.id); out->set_title(t.title); out->set_artist_name(t.artistName); out->set_album_title(t.albumTitle); out->set_track_number(t.trackNumber); out->set_file_path(t.filePath);}
+    for (const auto& t : catalog_->listTracks()) populateTrackMessage(t, response->add_tracks());
+    return Status::OK;
+}
+
+Status RunChartService::GetTrack(ServerContext* context, const runchart::GetTrackRequest* request, runchart::GetTrackResponse* response) {
+    if (!auth_->isAuthorized(context)) return {grpc::StatusCode::UNAUTHENTICATED, "Invalid auth token"};
+    TrackRecord track{};
+    if (!catalog_->findTrackById(request->id(), &track)) {
+        return {grpc::StatusCode::NOT_FOUND, "Track not found"};
+    }
+    populateTrackMessage(track, response->mutable_track());
     return Status::OK;
 }
 
@@ -154,6 +174,6 @@ Status RunChartService::Search(ServerContext* context, const runchart::SearchReq
     const std::string q = request->query();
     for (const auto& a : catalog_->searchArtists(q)) { auto* out = response->add_artists(); out->set_id(a.id); out->set_name(a.name);}
     for (const auto& a : catalog_->searchAlbums(q)) { auto* out = response->add_albums(); out->set_id(a.id); out->set_title(a.title); out->set_artist_name(a.artistName);}
-    for (const auto& t : catalog_->searchTracks(q)) { auto* out = response->add_tracks(); out->set_id(t.id); out->set_title(t.title); out->set_artist_name(t.artistName); out->set_album_title(t.albumTitle); out->set_track_number(t.trackNumber); out->set_file_path(t.filePath);}
+    for (const auto& t : catalog_->searchTracks(q)) populateTrackMessage(t, response->add_tracks());
     return Status::OK;
 }

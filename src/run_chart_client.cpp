@@ -151,6 +151,18 @@ void RunChartClient::listTracks() {
     for (const auto& t : resp.tracks()) std::cout << t.id() << " | " << t.artist_name() << " | " << t.album_title() << " | " << t.track_number() << " | " << t.title() << " | " << t.file_path() << "\n";
 }
 
+ClientTrack RunChartClient::getTrack(std::int64_t trackId) {
+    grpc::ClientContext context;
+    runchart::GetTrackRequest req;
+    runchart::GetTrackResponse resp;
+    req.set_id(trackId);
+    addAuthToken(&context);
+    auto status = stub_->GetTrack(&context, req, &resp);
+    if (!status.ok()) throw std::runtime_error("GetTrack failed: " + status.error_message());
+    const auto& t = resp.track();
+    return ClientTrack{t.id(), t.title(), t.artist_name(), t.album_title(), t.track_number(), t.file_path()};
+}
+
 void RunChartClient::search(const std::string& query) {
     grpc::ClientContext context; runchart::SearchRequest req; runchart::SearchResponse resp; req.set_query(query);
     addAuthToken(&context);
@@ -158,5 +170,5 @@ void RunChartClient::search(const std::string& query) {
     if (!status.ok()) throw std::runtime_error("Search failed: " + status.error_message());
     std::cout << "Artists:\n"; for (const auto& a : resp.artists()) std::cout << "  - " << a.name() << "\n";
     std::cout << "Albums:\n"; for (const auto& a : resp.albums()) std::cout << "  - " << a.artist_name() << " / " << a.title() << "\n";
-    std::cout << "Tracks:\n"; for (const auto& t : resp.tracks()) std::cout << "  - " << t.artist_name() << " / " << t.album_title() << " / " << t.title() << "\n";
+    std::cout << "Tracks:\n"; for (const auto& t : resp.tracks()) std::cout << "  - " << t.id() << " | " << t.artist_name() << " / " << t.album_title() << " / " << t.title() << " | " << t.file_path() << "\n";
 }
